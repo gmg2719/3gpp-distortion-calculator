@@ -15,14 +15,22 @@ export class Band {
     }
 }
 
-export function calculate(bands: Array<Band>,
+export function calculate(bandsAll: Array<Band>,
                             numBands: number = 2,
                             order: number = 2) {
-    let combs = Comb.combination(bands, numBands);
-    let comb;
-    while (comb = combs.next()) {
+    let combsBands = Comb.combination(bandsAll, numBands).toArray();
+    let combsCoeffs = combinatorialSum(order, numBands);
+    let combsSigns = Comb.baseN([1, -1], numBands).toArray();
+    let combsCoeffsWithSigns: Array<Array<number>> = [];
+    for (let coeffs of combsCoeffs) {
+        for (let signs of combsSigns) {
+            let coeffsWithSigns: Array<number> = [];
+            for (let i = 0; i < coeffs.length; i++) {
+                coeffsWithSigns.push(coeffs[i] * signs[i]);
+            }
+            combsCoeffsWithSigns.push(coeffsWithSigns);
+        }
     }
-    let coeffs = combinatorialSum(order, numBands);
 }
 
 function combinatorialSum(targetSum: number, numPartitions: number): Array<Array<number>> {
