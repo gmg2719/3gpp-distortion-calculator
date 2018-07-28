@@ -16,11 +16,30 @@ export class Band {
 }
 
 export function calculate(bands: Array<Band>,
-                            numBands: Number = 2,
-                            order: Number = 2) {
+                            numBands: number = 2,
+                            order: number = 2) {
     let combs = Comb.combination(bands, numBands);
     let comb;
-    // TODO: combinational sum
+    while (comb = combs.next()) {
+    }
+    let coeffs = combinatorialSum(order, numBands);
+}
+
+function combinatorialSum(targetSum: number, numPartitions: number): Array<Array<number>> {
+    if (targetSum < numPartitions) {
+        return null;
+    }
+    if (numPartitions == 1) {
+        return [[targetSum]];
+    }
+    let combs: Array<Array<number>> = [];
+    for (let i = 1; i <= targetSum - (numPartitions - 1); i++) {
+        let combsSub = combinatorialSum(targetSum - i, numPartitions - 1);
+        for (let comb of combsSub) {
+            combs.push(Array.prototype.concat(i, comb));
+        }
+    }
+    return combs;
 }
 
 export function parseBands(content: string): Array<Band> {
