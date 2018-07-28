@@ -13,6 +13,14 @@ export class Band {
         this.fLow = fLow;
         this.fHigh = fHigh;
     }
+
+    centerFrequency(): number {
+        return (this.fHigh + this.fLow) / 2;
+    }
+
+    bandwidth(): number {
+        return this.fHigh - this.fLow;
+    }
 }
 
 export function calculate(bandsAll: Array<Band>,
