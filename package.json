@@ -1,0 +1,25 @@
+{
+  "name": "third-gen-idc-calculator",
+  "version": "1.0.0",
+  "description": "Calculate in-device coexistence (IDC), e.g. intermodulation distortion (IMD) and harmonics",
+  "main": "calculator.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gsongsong/3gpp-idc-calculator.git"
+  },
+  "author": "",
+  "license": "GPL-3.0",
+  "bugs": {
+    "url": "https://github.com/gsongsong/3gpp-idc-calculator/issues"
+  },
+  "homepage": "https://github.com/gsongsong/3gpp-idc-calculator#readme",
+  "dependencies": {
+    "js-combinatorics": "^0.5.3"
+  },
+  "devDependencies": {
+    "@types/node": "^10.5.4"
+  }
+}
