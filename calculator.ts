@@ -130,8 +130,12 @@ if (require.main == module) {
         let bands = parseBands(content);
         console.log('===== Bands =====');
         console.log(bands);
-        let resultHarmonics = calculateHarmonics(bands);
-        let resultImd = calculateIMD(bands, 2, 3);
+        let resultHarmonics: Array<Band> = [];
+        let resultImd: Array<Band> = [];
+        for (let order = 2; order < 9; order++) {
+            resultHarmonics = resultHarmonics.concat(calculateHarmonics(bands, order));
+            resultImd = resultImd.concat(calculateIMD(bands, 2, order));
+        }
         console.log('===== Harmonics =====');
         console.log(resultHarmonics);
         console.log('===== IMD =====');
