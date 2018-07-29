@@ -26,7 +26,7 @@ export class Band {
 export function calculate(bandsAll: Array<Band>,
                             numBands: number = 2,
                             order: number = 2) {
-    let combsBands = Comb.combination(bandsAll, numBands).toArray();
+    let combsBands: Array<Array<Band>> = Comb.combination(bandsAll, numBands).toArray();
     let combsCoeffs = combinatorialSum(order, numBands);
     let combsSigns = Comb.baseN([1, -1], numBands).toArray();
     let combsCoeffsWithSigns: Array<Array<number>> = [];
@@ -37,6 +37,21 @@ export function calculate(bandsAll: Array<Band>,
                 coeffsWithSigns.push(coeffs[i] * signs[i]);
             }
             combsCoeffsWithSigns.push(coeffsWithSigns);
+        }
+    }
+    for (let bands of combsBands) {
+        for (let coeffsWithSings of combsCoeffsWithSigns) {
+            let bandCombName = '';
+            let centerFrequency = 0;
+            let bandwidth = 0;
+            for (let i = 0; i < coeffsWithSings.length; i++) {
+                let coeffString = `${coeffsWithSings[i] > 0 ? '+' : '-'}${Math.abs(coeffsWithSings[i]) == 1 ? '' : Math.abs(coeffsWithSings[i])}`;
+                bandCombName += `${coeffString}${bands[i].name} `;
+                centerFrequency += coeffsWithSings[i] * bands[i].centerFrequency();
+                bandwidth += Math.abs(coeffsWithSings[i]) * bands[i].bandwidth();
+            }
+            let fLow = centerFrequency - bandwidth / 2;
+            let fHigh = fLow + bandwidth;
         }
     }
 }
