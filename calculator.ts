@@ -2,16 +2,29 @@ import { readFileSync, writeFileSync } from 'fs';
 import { parse, resolve } from 'path';
 
 let Comb = require('js-combinatorics');
+let window = require('svgdom');
+let SVG = require('svg.js')(window);
+let rectHeight = 50;
+let yMargin = 50;
+let yStep = rectHeight + yMargin;
+let yOffset = 5;
 
-export class Band {
+enum IdcType { Harmonics, IMD }
+
+class Band {
     name: string;
     fLow: number;
     fHigh: number;
+    idcType: IdcType;
+    idcOrder: number;
 
-    constructor(name, fLow, fHigh) {
+    constructor(name, fLow, fHigh,
+                idcType: IdcType = null, idcOrder: number = null) {
         this.name = name;
         this.fLow = fLow;
         this.fHigh = fHigh;
+        this.idcType = idcType;
+        this.idcOrder = idcOrder;
     }
 
     centerFrequency(): number {
@@ -32,7 +45,7 @@ export function calculateHarmonics(bandsAll: Array<Band>,
         let fLow = centerFrequency - bandwidth / 2;
         let fHigh = fLow + bandwidth;
         let bandHarmonics = new Band(`${band.name} order: ${order}`,
-                                        fLow, fHigh);
+                                        fLow, fHigh, IdcType.Harmonics, order);
         for (let bandVictim of bandsAll) {
             if (!doesOverlap(bandVictim, bandHarmonics)) {
                 continue;
@@ -68,19 +81,22 @@ export function calculateIMD(bandsAll: Array<Band>,
             let bandwidth = 0;
             for (let i = 0; i < coeffsWithSings.length; i++) {
                 let coeffString = `${coeffsWithSings[i] > 0 ? '+' : '-'}${Math.abs(coeffsWithSings[i]) == 1 ? '' : Math.abs(coeffsWithSings[i])}`;
-                bandCombName += `${coeffString}${bands[i].name} `;
+                bandCombName += `${coeffString}${bands[i].name}`;
                 centerFrequency += coeffsWithSings[i] * bands[i].centerFrequency();
                 bandwidth += Math.abs(coeffsWithSings[i]) * bands[i].bandwidth();
             }
-            bandCombName += `order: ${order}`;
+            if (bandCombName[0] == '+') {
+                bandCombName = bandCombName.substring(1);
+            }
             let fLow = centerFrequency - bandwidth / 2;
             let fHigh = fLow + bandwidth;
-            let bandImd = new Band(bandCombName, fLow, fHigh);
+            let bandImd = new Band(bandCombName, fLow, fHigh,
+                                    IdcType.IMD, order);
             for (let band of bandsAll) {
-                if (!doesOverlap(band, bandImd)) {
-                    continue;
+                if (doesOverlap(band, bandImd)) {
+                    bandsImd.push(bandImd);
+                    break;
                 }
-                bandsImd.push(bandImd);
             }
         }
     }
@@ -122,24 +138,100 @@ export function parseBands(content: string): Array<Band> {
     return bands;
 }
 
+function getFreqMax(bands) {
+    let fMax = 0;
+    for (let band of bands) {
+        fMax = Math.max(fMax, band.fHigh);
+    }
+    return fMax;
+}
+
+function getOrderMax(bands) {
+    let orderMax = 0;
+    for (let band of bands) {
+        orderMax = Math.max(orderMax, band.idcOrder);
+    }
+    return orderMax;
+}
+
+function drawIdcBands(bands: Array<Band>, draw, yStart: number, color: string) {
+    let y: number;
+    let offset: number;
+    let orderCurr: number = null;
+    for (let band of bands) {
+        if (!orderCurr) {
+            y = yStart;
+            offset = 0;
+            orderCurr = band.idcOrder;
+        } else if (orderCurr != band.idcOrder) {
+            y += yStep;
+            offset = 0;
+            orderCurr = band.idcOrder;
+        } else {
+            offset -= yOffset;
+        }
+        draw.rect((band.fHigh - band.fLow), rectHeight)
+                .move(band.fLow, yStep * band.idcOrder + yMargin + offset)
+                .stroke({color: color}).fill({opacity: 0});
+        draw.plain(band.name).move(band.fLow,
+                                    yStep * band.idcOrder + yMargin + offset);
+        draw.plain(`${band.fLow}`).move(band.fLow,
+                                        yStep * band.idcOrder + yStep);
+        draw.plain(`${band.fHigh}`).move(band.fHigh,
+                                            yStep * band.idcOrder + yStep + 10);
+    }
+    return y;
+}
+
 if (require.main == module) {
     if (process.argv.length >= 3) {
         let file = parse(process.argv[2]);
         let content = readFileSync(resolve(process.cwd(), file.dir, file.base),
                                     'utf8')
         let bands = parseBands(content);
+        let fMax = getFreqMax(bands);
         console.log('===== Bands =====');
         console.log(bands);
-        let resultHarmonics: Array<Band> = [];
-        let resultImd: Array<Band> = [];
+        let bandsHarmonics: Array<Band> = [];
+        let bandsImd: Array<Band> = [];
         for (let order = 2; order < 9; order++) {
-            resultHarmonics = resultHarmonics.concat(calculateHarmonics(bands, order));
-            resultImd = resultImd.concat(calculateIMD(bands, 2, order));
+            bandsHarmonics = bandsHarmonics.concat(calculateHarmonics(bands,
+                                                                        order));
+            bandsImd = bandsImd.concat(calculateIMD(bands, 2, order));
         }
+        fMax = Math.max(getFreqMax(bands),
+                        getFreqMax(bandsHarmonics),
+                        getFreqMax(bandsImd));
+        let orderMax = Math.max(getOrderMax(bandsHarmonics),
+                                getOrderMax(bandsImd));
         console.log('===== Harmonics =====');
-        console.log(resultHarmonics);
+        console.log(bandsHarmonics);
         console.log('===== IMD =====');
-        console.log(resultImd);
+        console.log(bandsImd);
+        let document = window.document;
+        let draw = SVG(document.documentElement).size(fMax + 100, 1000);
+        for (let order = 2; order <= orderMax; order++) {
+            let y = yStep * order;
+            draw.plain(`Order: ${order}`).move(0, y + yStep);
+            draw.line(0, y + yStep, fMax + 100, y + yStep)
+                .stroke({color: '#000', width: 1});
+        }
+        // Given bands
+        for (let band of bands) {
+            draw.rect((band.fHigh - band.fLow), rectHeight)
+                .move(band.fLow, yMargin)
+                .stroke({color: '#000'}).fill({opacity: 0});
+            draw.plain(band.name).move(band.fLow, yMargin);
+            draw.plain(`${band.fLow}`).move(band.fLow, yStep);
+            draw.plain(`${band.fHigh}`).move(band.fHigh, yStep + 10);
+        }
+        draw.line(0, yStep, fMax + 100, yStep)
+            .stroke({color: '#000', width: 1});
+        // Harmonics
+        let y = drawIdcBands(bandsHarmonics, draw, yStep, '#00f');
+        // IMD
+        drawIdcBands(bandsImd, draw, y, '#f00');
+        writeFileSync('test.svg', draw.svg());
     } else {
     }
 }

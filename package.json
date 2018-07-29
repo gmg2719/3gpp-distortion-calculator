@@ -17,7 +17,9 @@
   },
   "homepage": "https://github.com/gsongsong/3gpp-idc-calculator#readme",
   "dependencies": {
-    "js-combinatorics": "^0.5.3"
+    "js-combinatorics": "^0.5.3",
+    "svg.js": "^2.6.5",
+    "svgdom": "0.0.15"
   },
   "devDependencies": {
     "@types/node": "^10.5.4"
