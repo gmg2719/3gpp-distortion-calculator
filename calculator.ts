@@ -23,6 +23,26 @@ export class Band {
     }
 }
 
+export function calculateHarmonics(bandsAll: Array<Band>,
+                                    order: number = 2): Array<Band> {
+    let bandsHarmonics: Array<Band> = [];
+    for (let band of bandsAll) {
+        let centerFrequency = order * band.centerFrequency();
+        let bandwidth = order * band.bandwidth();
+        let fLow = centerFrequency - bandwidth / 2;
+        let fHigh = fLow + bandwidth;
+        let bandHarmonics = new Band(`${band.name} order: ${order}`,
+                                        fLow, fHigh);
+        for (let bandVictim of bandsAll) {
+            if (!doesOverlap(bandVictim, bandHarmonics)) {
+                continue;
+            }
+            bandsHarmonics.push(bandHarmonics);
+        }
+    }
+    return bandsHarmonics;
+}
+
 export function calculateIMD(bandsAll: Array<Band>,
                             numBands: number = 2,
                             order: number = 2): Array<Band> {
@@ -52,6 +72,7 @@ export function calculateIMD(bandsAll: Array<Band>,
                 centerFrequency += coeffsWithSings[i] * bands[i].centerFrequency();
                 bandwidth += Math.abs(coeffsWithSings[i]) * bands[i].bandwidth();
             }
+            bandCombName += `order: ${order}`;
             let fLow = centerFrequency - bandwidth / 2;
             let fHigh = fLow + bandwidth;
             let bandImd = new Band(bandCombName, fLow, fHigh);
@@ -59,14 +80,15 @@ export function calculateIMD(bandsAll: Array<Band>,
                 if (!doesOverlap(band, bandImd)) {
                     continue;
                 }
-                bandsImd.push(band);
+                bandsImd.push(bandImd);
             }
         }
     }
     return bandsImd;
 }
 
-function combinatorialSum(targetSum: number, numPartitions: number): Array<Array<number>> {
+function combinatorialSum(targetSum: number,
+                            numPartitions: number):Array<Array<number>> {
     if (targetSum < numPartitions) {
         return null;
     }
@@ -106,7 +128,14 @@ if (require.main == module) {
         let content = readFileSync(resolve(process.cwd(), file.dir, file.base),
                                     'utf8')
         let bands = parseBands(content);
-        let idcResult = calculateIMD(bands, 2, 3);
+        console.log('===== Bands =====');
+        console.log(bands);
+        let resultHarmonics = calculateHarmonics(bands);
+        let resultImd = calculateIMD(bands, 2, 3);
+        console.log('===== Harmonics =====');
+        console.log(resultHarmonics);
+        console.log('===== IMD =====');
+        console.log(resultImd);
     } else {
     }
 }
