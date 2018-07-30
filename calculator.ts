@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'fs';
 import { parse, resolve } from 'path';
 
+let ConfigParser = require('configparser');
 let Comb = require('js-combinatorics');
 let window = require('svgdom');
 let SVG = require('svg.js')(window);
@@ -36,18 +37,18 @@ class Band {
     }
 }
 
-export function calculateHarmonics(bandsAll: Array<Band>,
+export function calculateHarmonics(bandsUl: Array<Band>, bandsDl: Array<Band>,
                                     order: number = 2): Array<Band> {
     let bandsHarmonics: Array<Band> = [];
-    for (let band of bandsAll) {
-        let centerFrequency = order * band.centerFrequency();
-        let bandwidth = order * band.bandwidth();
+    for (let bandUl of bandsUl) {
+        let centerFrequency = order * bandUl.centerFrequency();
+        let bandwidth = order * bandUl.bandwidth();
         let fLow = centerFrequency - bandwidth / 2;
         let fHigh = fLow + bandwidth;
-        let bandHarmonics = new Band(`${band.name} order: ${order}`,
+        let bandHarmonics = new Band(`${bandUl.name}`,
                                         fLow, fHigh, IdcType.Harmonics, order);
-        for (let bandVictim of bandsAll) {
-            if (!doesOverlap(bandVictim, bandHarmonics)) {
+        for (let bandDl of bandsDl) {
+            if (!doesOverlap(bandDl, bandHarmonics)) {
                 continue;
             }
             bandsHarmonics.push(bandHarmonics);
@@ -125,15 +126,15 @@ function doesOverlap(band1: Band, band2: Band) {
     return band1.fLow <= band2.fHigh && band2.fLow <= band1.fHigh;
 }
 
-export function parseBands(content: string): Array<Band> {
+export function parseBands(configParse, sectionName: string): Array<Band> {
     let bands: Array<Band> = [];
-    let lines = content.split('\n');
-    for (let line of lines) {
-        let tokens = line.split(' ');
-        if (tokens.length != 3) {
+    for (let bandName in configParse.items(sectionName)) {
+        let frequencies = configParse.get(sectionName, bandName).split(' ');
+        if (frequencies.length != 2) {
             continue;
         }
-        bands.push(new Band(tokens[0], Number(tokens[1]), Number(tokens[2])));
+        bands.push(new Band(bandName,
+            Number(frequencies[0]), Number(frequencies[1])));
     }
     return bands;
 }
@@ -152,6 +153,17 @@ function getOrderMax(bands) {
         orderMax = Math.max(orderMax, band.idcOrder);
     }
     return orderMax;
+}
+
+function drawBands(bands: Array<Band>, draw) {
+    for (let band of bands) {
+        draw.rect((band.fHigh - band.fLow), rectHeight)
+            .move(band.fLow, yMargin)
+            .stroke({color: '#000'}).fill({opacity: 0});
+        draw.plain(band.name).move(band.fLow, yMargin);
+        draw.plain(`${band.fLow}`).move(band.fLow, yStep);
+        draw.plain(`${band.fHigh}`).move(band.fHigh, yStep + 10);
+    }
 }
 
 function drawIdcBands(bands: Array<Band>, draw, yStart: number, color: string) {
@@ -186,22 +198,24 @@ function drawIdcBands(bands: Array<Band>, draw, yStart: number, color: string) {
 if (require.main == module) {
     if (process.argv.length >= 3) {
         let file = parse(process.argv[2]);
-        let content = readFileSync(resolve(process.cwd(), file.dir, file.base),
-                                    'utf8')
-        let bands = parseBands(content);
-        let fMax = getFreqMax(bands);
-        console.log('===== Bands =====');
-        console.log(bands);
+        let config = new ConfigParser();
+        config.read(process.argv[2]);
+        let bandsUl = parseBands(config, 'UL');
+        let bandsDl = parseBands(config, 'DL');
+        console.log('===== Bands (UL) =====');
+        console.log(bandsUl);
+        console.log('===== Bands (DL) =====');
+        console.log(bandsDl);
         let bandsHarmonics: Array<Band> = [];
         let bandsImd: Array<Band> = [];
         for (let order = 2; order < 9; order++) {
-            bandsHarmonics = bandsHarmonics.concat(calculateHarmonics(bands,
+            bandsHarmonics = bandsHarmonics.concat(calculateHarmonics(bandsUl,
+                                                                        bandsDl,
                                                                         order));
-            bandsImd = bandsImd.concat(calculateIMD(bands, 2, order));
+            bandsImd = bandsImd.concat(calculateIMD(bandsUl, 2, order));
         }
-        fMax = Math.max(getFreqMax(bands),
-                        getFreqMax(bandsHarmonics),
-                        getFreqMax(bandsImd));
+        let fMax = Math.max(getFreqMax(bandsUl), getFreqMax(bandsDl),
+                        getFreqMax(bandsHarmonics), getFreqMax(bandsImd));
         let orderMax = Math.max(getOrderMax(bandsHarmonics),
                                 getOrderMax(bandsImd));
         console.log('===== Harmonics =====');
@@ -217,14 +231,8 @@ if (require.main == module) {
                 .stroke({color: '#000', width: 1});
         }
         // Given bands
-        for (let band of bands) {
-            draw.rect((band.fHigh - band.fLow), rectHeight)
-                .move(band.fLow, yMargin)
-                .stroke({color: '#000'}).fill({opacity: 0});
-            draw.plain(band.name).move(band.fLow, yMargin);
-            draw.plain(`${band.fLow}`).move(band.fLow, yStep);
-            draw.plain(`${band.fHigh}`).move(band.fHigh, yStep + 10);
-        }
+        drawBands(bandsUl, draw);
+        drawBands(bandsDl, draw);
         draw.line(0, yStep, fMax + 100, yStep)
             .stroke({color: '#000', width: 1});
         // Harmonics

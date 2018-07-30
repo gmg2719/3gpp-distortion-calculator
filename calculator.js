@@ -2,6 +2,7 @@
 exports.__esModule = true;
 var fs_1 = require("fs");
 var path_1 = require("path");
+var ConfigParser = require('configparser');
 var Comb = require('js-combinatorics');
 var window = require('svgdom');
 var SVG = require('svg.js')(window);
@@ -30,25 +31,21 @@ var Band = /** @class */ (function () {
     Band.prototype.bandwidth = function () {
         return this.fHigh - this.fLow;
     };
-    Band.prototype.setIdcInfo = function (idcType, idcOrder) {
-        this.idcType = idcType;
-        this.idcOrder = idcOrder;
-    };
     return Band;
 }());
-function calculateHarmonics(bandsAll, order) {
+function calculateHarmonics(bandsUl, bandsDl, order) {
     if (order === void 0) { order = 2; }
     var bandsHarmonics = [];
-    for (var _i = 0, bandsAll_1 = bandsAll; _i < bandsAll_1.length; _i++) {
-        var band = bandsAll_1[_i];
-        var centerFrequency = order * band.centerFrequency();
-        var bandwidth = order * band.bandwidth();
+    for (var _i = 0, bandsUl_1 = bandsUl; _i < bandsUl_1.length; _i++) {
+        var bandUl = bandsUl_1[_i];
+        var centerFrequency = order * bandUl.centerFrequency();
+        var bandwidth = order * bandUl.bandwidth();
         var fLow = centerFrequency - bandwidth / 2;
         var fHigh = fLow + bandwidth;
-        var bandHarmonics = new Band(band.name + " order: " + order, fLow, fHigh, IdcType.Harmonics, order);
-        for (var _a = 0, bandsAll_2 = bandsAll; _a < bandsAll_2.length; _a++) {
-            var bandVictim = bandsAll_2[_a];
-            if (!doesOverlap(bandVictim, bandHarmonics)) {
+        var bandHarmonics = new Band("" + bandUl.name, fLow, fHigh, IdcType.Harmonics, order);
+        for (var _a = 0, bandsDl_1 = bandsDl; _a < bandsDl_1.length; _a++) {
+            var bandDl = bandsDl_1[_a];
+            if (!doesOverlap(bandDl, bandHarmonics)) {
                 continue;
             }
             bandsHarmonics.push(bandHarmonics);
@@ -90,15 +87,14 @@ function calculateIMD(bandsAll, numBands, order) {
                 centerFrequency += coeffsWithSings[i] * bands[i].centerFrequency();
                 bandwidth += Math.abs(coeffsWithSings[i]) * bands[i].bandwidth();
             }
-            // bandCombName += `order: ${order}`;
             if (bandCombName[0] == '+') {
                 bandCombName = bandCombName.substring(1);
             }
             var fLow = centerFrequency - bandwidth / 2;
             var fHigh = fLow + bandwidth;
             var bandImd = new Band(bandCombName, fLow, fHigh, IdcType.IMD, order);
-            for (var _d = 0, bandsAll_3 = bandsAll; _d < bandsAll_3.length; _d++) {
-                var band = bandsAll_3[_d];
+            for (var _d = 0, bandsAll_1 = bandsAll; _d < bandsAll_1.length; _d++) {
+                var band = bandsAll_1[_d];
                 if (doesOverlap(band, bandImd)) {
                     bandsImd.push(bandImd);
                     break;
@@ -129,16 +125,14 @@ function combinatorialSum(targetSum, numPartitions) {
 function doesOverlap(band1, band2) {
     return band1.fLow <= band2.fHigh && band2.fLow <= band1.fHigh;
 }
-function parseBands(content) {
+function parseBands(configParse, sectionName) {
     var bands = [];
-    var lines = content.split('\n');
-    for (var _i = 0, lines_1 = lines; _i < lines_1.length; _i++) {
-        var line = lines_1[_i];
-        var tokens = line.split(' ');
-        if (tokens.length != 3) {
+    for (var bandName in configParse.items(sectionName)) {
+        var frequencies = configParse.get(sectionName, bandName).split(' ');
+        if (frequencies.length != 2) {
             continue;
         }
-        bands.push(new Band(tokens[0], Number(tokens[1]), Number(tokens[2])));
+        bands.push(new Band(bandName, Number(frequencies[0]), Number(frequencies[1])));
     }
     return bands;
 }
@@ -159,12 +153,23 @@ function getOrderMax(bands) {
     }
     return orderMax;
 }
+function drawBands(bands, draw) {
+    for (var _i = 0, bands_3 = bands; _i < bands_3.length; _i++) {
+        var band = bands_3[_i];
+        draw.rect((band.fHigh - band.fLow), rectHeight)
+            .move(band.fLow, yMargin)
+            .stroke({ color: '#000' }).fill({ opacity: 0 });
+        draw.plain(band.name).move(band.fLow, yMargin);
+        draw.plain("" + band.fLow).move(band.fLow, yStep);
+        draw.plain("" + band.fHigh).move(band.fHigh, yStep + 10);
+    }
+}
 function drawIdcBands(bands, draw, yStart, color) {
     var y;
     var offset;
     var orderCurr = null;
-    for (var _i = 0, bands_3 = bands; _i < bands_3.length; _i++) {
-        var band = bands_3[_i];
+    for (var _i = 0, bands_4 = bands; _i < bands_4.length; _i++) {
+        var band = bands_4[_i];
         if (!orderCurr) {
             y = yStart;
             offset = 0;
@@ -190,18 +195,21 @@ function drawIdcBands(bands, draw, yStart, color) {
 if (require.main == module) {
     if (process.argv.length >= 3) {
         var file = path_1.parse(process.argv[2]);
-        var content = fs_1.readFileSync(path_1.resolve(process.cwd(), file.dir, file.base), 'utf8');
-        var bands = parseBands(content);
-        var fMax = getFreqMax(bands);
-        console.log('===== Bands =====');
-        console.log(bands);
+        var config = new ConfigParser();
+        config.read(process.argv[2]);
+        var bandsUl = parseBands(config, 'UL');
+        var bandsDl = parseBands(config, 'DL');
+        console.log('===== Bands (UL) =====');
+        console.log(bandsUl);
+        console.log('===== Bands (DL) =====');
+        console.log(bandsDl);
         var bandsHarmonics = [];
         var bandsImd = [];
         for (var order = 2; order < 9; order++) {
-            bandsHarmonics = bandsHarmonics.concat(calculateHarmonics(bands, order));
-            bandsImd = bandsImd.concat(calculateIMD(bands, 2, order));
+            bandsHarmonics = bandsHarmonics.concat(calculateHarmonics(bandsUl, bandsDl, order));
+            bandsImd = bandsImd.concat(calculateIMD(bandsUl, 2, order));
         }
-        fMax = Math.max(getFreqMax(bands), getFreqMax(bandsHarmonics), getFreqMax(bandsImd));
+        var fMax = Math.max(getFreqMax(bandsUl), getFreqMax(bandsDl), getFreqMax(bandsHarmonics), getFreqMax(bandsImd));
         var orderMax = Math.max(getOrderMax(bandsHarmonics), getOrderMax(bandsImd));
         console.log('===== Harmonics =====');
         console.log(bandsHarmonics);
@@ -212,18 +220,14 @@ if (require.main == module) {
         for (var order = 2; order <= orderMax; order++) {
             var y_1 = yStep * order;
             draw.plain("Order: " + order).move(0, y_1 + yStep);
-            draw.line(0, y_1 + yStep, fMax + 100, y_1 + yStep).stroke({ color: '#000', width: 1 });
+            draw.line(0, y_1 + yStep, fMax + 100, y_1 + yStep)
+                .stroke({ color: '#000', width: 1 });
         }
         // Given bands
-        for (var _i = 0, bands_4 = bands; _i < bands_4.length; _i++) {
-            var band = bands_4[_i];
-            draw.rect((band.fHigh - band.fLow), rectHeight).move(band.fLow, yMargin)
-                .stroke({ color: '#000' }).fill({ opacity: 0 });
-            draw.plain(band.name).move(band.fLow, yMargin);
-            draw.plain("" + band.fLow).move(band.fLow, yStep);
-            draw.plain("" + band.fHigh).move(band.fHigh, yStep + 10);
-        }
-        draw.line(0, yStep, fMax + 100, yStep).stroke({ color: '#000', width: 1 });
+        drawBands(bandsUl, draw);
+        drawBands(bandsDl, draw);
+        draw.line(0, yStep, fMax + 100, yStep)
+            .stroke({ color: '#000', width: 1 });
         // Harmonics
         var y = drawIdcBands(bandsHarmonics, draw, yStep, '#00f');
         // IMD
