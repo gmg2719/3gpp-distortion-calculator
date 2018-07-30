@@ -232,7 +232,7 @@ if (require.main == module) {
         var y = drawIdcBands(bandsHarmonics, draw, yStep, '#00f');
         // IMD
         drawIdcBands(bandsImd, draw, y, '#f00');
-        fs_1.writeFileSync('test.svg', draw.svg());
+        fs_1.writeFileSync(file.name + ".svg", draw.svg());
     }
     else {
     }
