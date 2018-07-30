@@ -94,7 +94,8 @@ export function calculateIMD(bandsAll: Array<Band>,
             let bandImd = new Band(bandCombName, fLow, fHigh,
                                     IdcType.IMD, order);
             for (let band of bandsAll) {
-                if (doesOverlap(band, bandImd)) {
+                if (doesOverlap(band, bandImd) &&
+                    bandImd.name.indexOf(band.name) != -1) {
                     bandsImd.push(bandImd);
                     break;
                 }

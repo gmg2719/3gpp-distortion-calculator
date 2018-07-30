@@ -95,7 +95,8 @@ function calculateIMD(bandsAll, numBands, order) {
             var bandImd = new Band(bandCombName, fLow, fHigh, IdcType.IMD, order);
             for (var _d = 0, bandsAll_1 = bandsAll; _d < bandsAll_1.length; _d++) {
                 var band = bandsAll_1[_d];
-                if (doesOverlap(band, bandImd)) {
+                if (doesOverlap(band, bandImd) &&
+                    bandImd.name.indexOf(band.name) != -1) {
                     bandsImd.push(bandImd);
                     break;
                 }
