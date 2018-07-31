@@ -154,11 +154,13 @@ function getOrderMax(bands) {
     }
     return orderMax;
 }
-function drawBands(bands, draw) {
+function drawBands(bands, draw, height, offset) {
+    if (height === void 0) { height = rectHeight; }
+    if (offset === void 0) { offset = 0; }
     for (var _i = 0, bands_3 = bands; _i < bands_3.length; _i++) {
         var band = bands_3[_i];
-        draw.rect((band.fHigh - band.fLow), rectHeight)
-            .move(band.fLow, yMargin)
+        draw.rect((band.fHigh - band.fLow), height)
+            .move(band.fLow, yMargin + offset)
             .stroke({ color: '#000' }).fill({ opacity: 0 });
         draw.plain(band.name).move(band.fLow, yMargin);
         draw.plain("" + band.fLow).move(band.fLow, yStep);
@@ -225,8 +227,8 @@ if (require.main == module) {
                 .stroke({ color: '#000', width: 1 });
         }
         // Given bands
-        drawBands(bandsUl, draw);
-        drawBands(bandsDl, draw);
+        drawBands(bandsUl, draw, 25);
+        drawBands(bandsDl, draw, 25, 25);
         draw.line(0, yStep, fMax + 100, yStep)
             .stroke({ color: '#000', width: 1 });
         // Harmonics
