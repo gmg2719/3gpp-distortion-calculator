@@ -57,10 +57,10 @@ export function calculateHarmonics(bandsUl: Array<Band>, bandsDl: Array<Band>,
     return bandsHarmonics;
 }
 
-export function calculateIMD(bandsAll: Array<Band>,
+export function calculateIMD(bandsUl: Array<Band>, bandsDl: Array<Band>,
                             numBands: number = 2,
                             order: number = 2): Array<Band> {
-    let combsBands: Array<Array<Band>> = Comb.combination(bandsAll, numBands)
+    let combsBands: Array<Array<Band>> = Comb.combination(bandsUl, numBands)
                                             .toArray();
     let combsCoeffs = combinatorialSum(order, numBands);
     let combsSigns = Comb.baseN([1, -1], numBands).toArray();
@@ -93,7 +93,7 @@ export function calculateIMD(bandsAll: Array<Band>,
             let fHigh = fLow + bandwidth;
             let bandImd = new Band(bandCombName, fLow, fHigh,
                                     IdcType.IMD, order);
-            for (let band of bandsAll) {
+            for (let band of bandsDl) {
                 if (doesOverlap(band, bandImd) &&
                     bandImd.name.indexOf(band.name) != -1) {
                     bandsImd.push(bandImd);
@@ -214,7 +214,8 @@ if (require.main == module) {
             bandsHarmonics = bandsHarmonics.concat(calculateHarmonics(bandsUl,
                                                                         bandsDl,
                                                                         order));
-            bandsImd = bandsImd.concat(calculateIMD(bandsUl, 2, order));
+            bandsImd = bandsImd.concat(calculateIMD(bandsUl, bandsDl,
+                                                    2, order));
         }
         let fMax = Math.max(getFreqMax(bandsUl), getFreqMax(bandsDl),
                         getFreqMax(bandsHarmonics), getFreqMax(bandsImd));
