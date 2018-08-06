@@ -1,6 +1,6 @@
 {
   "name": "third-gen-idc-calculator",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Calculate in-device coexistence (IDC), e.g. intermodulation distortion (IMD) and harmonics",
   "main": "calculator.js",
   "scripts": {

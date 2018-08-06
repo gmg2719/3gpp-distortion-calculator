@@ -82,11 +82,10 @@ function calculateIMD(bandsUl, bandsDl, numBands = 2, order = 2) {
             let fHigh = fLow + bandwidth;
             let bandImd = new Band(bandCombName, fLow, fHigh, IdcType.IMD, order);
             for (let band of bandsDl) {
-                if (doesOverlap(band, bandImd) &&
-                    bandImd.name.indexOf(band.name) != -1) {
-                    bandsImd.push(bandImd);
-                    break;
+                if (!doesOverlap(band, bandImd)) {
+                    continue;
                 }
+                bandsImd.push(bandImd);
             }
         }
     }
@@ -143,7 +142,7 @@ function drawBands(bands, draw, height = rectHeight, offset = 0) {
         draw.rect((band.fHigh - band.fLow), height)
             .move(band.fLow, yMargin + offset)
             .stroke({ color: '#000' }).fill({ opacity: 0 });
-        draw.plain(band.name).move(band.fLow, yMargin);
+        draw.plain(band.name).move(band.fLow, yMargin + offset);
         draw.plain(`${band.fLow}`).move(band.fLow, yStep);
         draw.plain(`${band.fHigh}`).move(band.fHigh, yStep + 10);
     }
@@ -188,7 +187,7 @@ if (require.main == module) {
         console.log(bandsDl);
         let bandsHarmonics = [];
         let bandsImd = [];
-        for (let order = 2; order < 9; order++) {
+        for (let order = 2; order <= 9; order++) {
             bandsHarmonics = bandsHarmonics.concat(calculateHarmonics(bandsUl, bandsDl, order));
             bandsImd = bandsImd.concat(calculateIMD(bandsUl, bandsDl, 2, order));
         }
