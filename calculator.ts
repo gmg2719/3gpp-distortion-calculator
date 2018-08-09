@@ -8,7 +8,7 @@ let SVG = require('svg.js')(window);
 let rectHeight = 50;
 let yMargin = 50;
 let yStep = rectHeight + yMargin;
-let yOffset = 5;
+let yOffsetText = 15;
 
 enum IdcType { Harmonics, IMD }
 
@@ -94,10 +94,10 @@ export function calculateIMD(bandsUl: Array<Band>, bandsDl: Array<Band>,
             let bandImd = new Band(bandCombName, fLow, fHigh,
                                     IdcType.IMD, order);
             for (let band of bandsDl) {
-                if (!doesOverlap(band, bandImd)) {
-                    continue;
+                if (doesOverlap(band, bandImd)) {
+                    bandsImd.push(bandImd);
+                    break;
                 }
-                bandsImd.push(bandImd);
             }
         }
     }
@@ -159,41 +159,57 @@ function drawBands(bands: Array<Band>, draw,
                     height: number = rectHeight, offset: number = 0) {
     for (let band of bands) {
         draw.rect((band.fHigh - band.fLow), height)
-            .move(band.fLow, yMargin + offset)
+            .move(band.fLow, offset)
             .stroke({color: '#000'}).fill({opacity: 0});
-        draw.plain(band.name).move(band.fLow, yMargin + offset);
-        draw.plain(`${band.fLow}`).move(band.fLow, yStep);
-        draw.plain(`${band.fHigh}`).move(band.fHigh, yStep + 10);
+        draw.plain(band.name).move(band.fLow, offset);
+        draw.plain(`${band.fLow}`).move(band.fLow, rectHeight);
+        draw.plain(`${band.fHigh}`).move(band.fHigh, rectHeight + yOffsetText);
     }
 }
 
-function drawIdcBands(bands: Array<Band>, draw, yStart: number, color: string) {
+function drawIdcBands(bands: Array<Band>, draw, yStart: number, fMax: number) {
     let y: number;
-    let offset: number;
     let orderCurr: number = null;
+    let fLow: Array<number> = [];
+    let fHigh: Array<number> = [];
     for (let band of bands) {
         if (!orderCurr) {
             y = yStart;
-            offset = 0;
             orderCurr = band.idcOrder;
         } else if (orderCurr != band.idcOrder) {
-            y += yStep;
-            offset = 0;
+            y += rectHeight;
+            drawAxis(draw, y, orderCurr, fMax, fLow, fHigh);
+            fLow = [];
+            fHigh = [];
+            y += yMargin;
             orderCurr = band.idcOrder;
         } else {
-            offset -= yOffset;
+            y += yOffsetText;
         }
         draw.rect((band.fHigh - band.fLow), rectHeight)
-                .move(band.fLow, yStep * band.idcOrder + yMargin + offset)
-                .stroke({color: color}).fill({opacity: 0});
-        draw.plain(band.name).move(band.fLow,
-                                    yStep * band.idcOrder + yMargin + offset);
-        draw.plain(`${band.fLow}`).move(band.fLow,
-                                        yStep * band.idcOrder + yStep);
-        draw.plain(`${band.fHigh}`).move(band.fHigh,
-                                            yStep * band.idcOrder + yStep + 10);
+                .move(band.fLow, y)
+                .stroke({color: band.idcType == IdcType.Harmonics ? '#00f' : '#f00'})
+                .fill({opacity: 0});
+        draw.plain(band.name).move(band.fLow, y);
+        fLow.push(band.fLow);
+        fHigh.push(band.fHigh);
     }
+    y += rectHeight;
+    drawAxis(draw, y, orderCurr, fMax, fLow, fHigh);
     return y;
+}
+
+function drawAxis(draw, y: number, orderCurr: number, fMax: number,
+                    fLow: Array<number>, fHigh: Array<number>) {
+    draw.plain(`Order: ${orderCurr}`).move(0, y);
+    draw.line(0, y, fMax + 100, y)
+        .stroke({color: '#000', width: 1});
+    for (let f of fLow) {
+        draw.plain(`${f}`).move(f, y);
+    }
+    for (let f of fHigh) {
+        draw.plain(`${f}`).move(f, y + yOffsetText);
+    }
 }
 
 if (require.main == module) {
@@ -207,6 +223,7 @@ if (require.main == module) {
         console.log(bandsUl);
         console.log('===== Bands (DL) =====');
         console.log(bandsDl);
+        let bandsDistortion: Array<Band> = [];
         let bandsHarmonics: Array<Band> = [];
         let bandsImd: Array<Band> = [];
         for (let order = 2; order <= 9; order++) {
@@ -216,8 +233,11 @@ if (require.main == module) {
             bandsImd = bandsImd.concat(calculateIMD(bandsUl, bandsDl,
                                                     2, order));
         }
+        bandsDistortion = bandsHarmonics.concat(bandsImd).sort(function (a, b) {
+            return a.idcOrder - b.idcOrder;
+        });
         let fMax = Math.max(getFreqMax(bandsUl), getFreqMax(bandsDl),
-                        getFreqMax(bandsHarmonics), getFreqMax(bandsImd));
+                            getFreqMax(bandsHarmonics), getFreqMax(bandsImd));
         let orderMax = Math.max(getOrderMax(bandsHarmonics),
                                 getOrderMax(bandsImd));
         console.log('===== Harmonics =====');
@@ -225,22 +245,14 @@ if (require.main == module) {
         console.log('===== IMD =====');
         console.log(bandsImd);
         let document = window.document;
-        let draw = SVG(document.documentElement).size(fMax + 100, 1000);
-        for (let order = 2; order <= orderMax; order++) {
-            let y = yStep * order;
-            draw.plain(`Order: ${order}`).move(0, y + yStep);
-            draw.line(0, y + yStep, fMax + 100, y + yStep)
-                .stroke({color: '#000', width: 1});
-        }
+        let draw = SVG(document.documentElement).size(fMax + 100, 2000);
         // Given bands
-        drawBands(bandsUl, draw, 25);
-        drawBands(bandsDl, draw, 25, 25);
-        draw.line(0, yStep, fMax + 100, yStep)
+        drawBands(bandsUl, draw, rectHeight / 2);
+        drawBands(bandsDl, draw, rectHeight / 2, rectHeight / 2);
+        draw.line(0, rectHeight, fMax + 100, rectHeight)
             .stroke({color: '#000', width: 1});
-        // Harmonics
-        let y = drawIdcBands(bandsHarmonics, draw, yStep, '#00f');
-        // IMD
-        drawIdcBands(bandsImd, draw, y, '#f00');
+        let y = drawIdcBands(bandsDistortion, draw,
+                                rectHeight + yOffsetText + yMargin, fMax);
         writeFileSync(`${file.name}.svg`, draw.svg());
     } else {
     }
