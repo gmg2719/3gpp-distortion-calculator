@@ -23,6 +23,6 @@
     "svgdom": "0.0.15"
   },
   "devDependencies": {
-    "@types/node": "^10.5.4"
+    "@types/node": "^10.5.8"
   }
 }
