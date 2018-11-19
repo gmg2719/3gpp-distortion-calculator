@@ -142,7 +142,10 @@ function drawIdcBands(bandsIdc, draw, yStart, fMax) {
             y = yStart;
             orderCurr = band.idcOrder;
         }
-        else if (orderCurr != band.idcOrder) {
+        else if (orderCurr == band.idcOrder) {
+            y += rectHeight;
+        }
+        else {
             y += rectHeight;
             drawAxis(draw, y, orderCurr, fMax, fLow, fHigh);
             fLow = [];
@@ -150,16 +153,13 @@ function drawIdcBands(bandsIdc, draw, yStart, fMax) {
             y += yMargin;
             orderCurr = band.idcOrder;
         }
-        else {
-            y += yOffsetText;
-        }
         draw.rect((band.fHigh - band.fLow), rectHeight)
             .move(band.fLow, y)
             .stroke({ color: band.idcType == types_1.IdcType.Harmonics ? '#00f' : '#f00' })
             .fill({ opacity: 0 });
         draw.plain(band.name).move(band.fLow, y);
-        fLow.push(band.fLow);
-        fHigh.push(band.fHigh);
+        draw.plain(band.fLow.toFixed(1)).move(band.fLow, y + yOffsetText);
+        draw.plain(band.fHigh.toFixed(1)).move(band.fHigh, y + 2 * yOffsetText);
     }
     y += rectHeight;
     drawAxis(draw, y, orderCurr, fMax, fLow, fHigh);
@@ -186,7 +186,8 @@ if (require.main == module) {
         let bandsDistortion = [];
         let bandsHarmonics = [];
         let bandsImd = [];
-        for (let order = 2; order <= 9; order++) {
+        let orderMax = 9;
+        for (let order = 2; order <= orderMax; order++) {
             bandsHarmonics = bandsHarmonics.concat(calculateHarmonics(bandsUl, bandsDl, order));
             bandsImd = bandsImd.concat(calculateIMD(bandsUl, bandsDl, 2, order));
         }
@@ -194,12 +195,13 @@ if (require.main == module) {
             return a.idcOrder - b.idcOrder;
         });
         let fMax = Math.max(getFreqMax(bandsUl), getFreqMax(bandsDl), getFreqMax(bandsHarmonics), getFreqMax(bandsImd));
-        let orderMax = Math.max(getOrderMax(bandsHarmonics), getOrderMax(bandsImd));
+        orderMax = Math.max(getOrderMax(bandsHarmonics), getOrderMax(bandsImd));
         let result = { 'UL bands': bandsUl, 'DL bands': bandsDl,
             'IMD': bandsImd, 'Harmonics': bandsHarmonics };
         console.log(JSON.stringify(result, null, 2));
         let document = window.document;
-        let draw = SVG(document.documentElement).size(fMax + 100, 2000);
+        let draw = SVG(document.documentElement).size(fMax + 100, (result.IMD.length + result.Harmonics.length) * rectHeight +
+            (orderMax * (yMargin + rectHeight)));
         // Given bands
         drawBands(bandsUl, draw, rectHeight / 2);
         drawBands(bandsDl, draw, rectHeight / 2, rectHeight / 2);
