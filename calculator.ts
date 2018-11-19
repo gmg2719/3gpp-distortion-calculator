@@ -219,10 +219,6 @@ if (require.main == module) {
         config.read(process.argv[2]);
         let bandsUl = parseBands(config, 'UL');
         let bandsDl = parseBands(config, 'DL');
-        console.log('===== Bands (UL) =====');
-        console.log(bandsUl);
-        console.log('===== Bands (DL) =====');
-        console.log(bandsDl);
         let bandsDistortion: Array<Band> = [];
         let bandsHarmonics: Array<Band> = [];
         let bandsImd: Array<Band> = [];
@@ -240,10 +236,9 @@ if (require.main == module) {
                             getFreqMax(bandsHarmonics), getFreqMax(bandsImd));
         let orderMax = Math.max(getOrderMax(bandsHarmonics),
                                 getOrderMax(bandsImd));
-        console.log('===== Harmonics =====');
-        console.log(bandsHarmonics);
-        console.log('===== IMD =====');
-        console.log(bandsImd);
+        let result = {'UL bands': bandsUl, 'DL bands': bandsDl,
+                     'IMD': bandsImd, 'Harmonics': bandsHarmonics};
+        console.log(JSON.stringify(result, null, 2));
         let document = window.document;
         let draw = SVG(document.documentElement).size(fMax + 100, 2000);
         // Given bands
