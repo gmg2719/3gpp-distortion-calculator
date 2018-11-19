@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const fs_1 = require("fs");
 const path_1 = require("path");
+const types_1 = require("./types");
 let ConfigParser = require('configparser');
 let Comb = require('js-combinatorics');
 let window = require('svgdom');
@@ -10,32 +11,6 @@ let rectHeight = 50;
 let yMargin = 50;
 let yStep = rectHeight + yMargin;
 let yOffsetText = 15;
-var IdcType;
-(function (IdcType) {
-    IdcType[IdcType["Harmonics"] = 0] = "Harmonics";
-    IdcType[IdcType["IMD"] = 1] = "IMD";
-})(IdcType || (IdcType = {}));
-class Band {
-    constructor(name, fLow, fHigh) {
-        this.name = name;
-        this.fLow = fLow;
-        this.fHigh = fHigh;
-    }
-    centerFrequency() {
-        return (this.fHigh + this.fLow) / 2;
-    }
-    bandwidth() {
-        return this.fHigh - this.fLow;
-    }
-}
-class BandIdc extends Band {
-    constructor(name, fLow, fHigh, idcType = null, idcOrder = null) {
-        super(name, fLow, fHigh);
-        this.idcType = idcType;
-        this.idcOrder = idcOrder;
-        this.victims = [];
-    }
-}
 function calculateHarmonics(bandsUl, bandsDl, order = 2) {
     let bandsHarmonics = [];
     for (let bandUl of bandsUl) {
@@ -43,7 +18,7 @@ function calculateHarmonics(bandsUl, bandsDl, order = 2) {
         let bandwidth = order * bandUl.bandwidth();
         let fLow = centerFrequency - bandwidth / 2;
         let fHigh = fLow + bandwidth;
-        let bandHarmonics = new BandIdc(`${bandUl.name}`, fLow, fHigh, IdcType.Harmonics, order);
+        let bandHarmonics = new types_1.BandIdc(`${bandUl.name}`, fLow, fHigh, types_1.IdcType.Harmonics, order);
         for (let bandDl of bandsDl) {
             if (doesOverlap(bandDl, bandHarmonics)) {
                 bandHarmonics.victims.push(bandDl);
@@ -88,7 +63,7 @@ function calculateIMD(bandsUl, bandsDl, numBands = 2, order = 2) {
             }
             let fLow = centerFrequency - bandwidth / 2;
             let fHigh = fLow + bandwidth;
-            let bandImd = new BandIdc(bandCombName, fLow, fHigh, IdcType.IMD, order);
+            let bandImd = new types_1.BandIdc(bandCombName, fLow, fHigh, types_1.IdcType.IMD, order);
             for (let bandDl of bandsDl) {
                 if (doesOverlap(bandDl, bandImd)) {
                     bandImd.victims.push(bandDl);
@@ -128,7 +103,7 @@ function parseBands(configParse, sectionName) {
         if (frequencies.length != 2) {
             continue;
         }
-        bands.push(new Band(bandName, Number(frequencies[0]), Number(frequencies[1])));
+        bands.push(new types_1.Band(bandName, Number(frequencies[0]), Number(frequencies[1])));
     }
     return bands;
 }
@@ -180,7 +155,7 @@ function drawIdcBands(bandsIdc, draw, yStart, fMax) {
         }
         draw.rect((band.fHigh - band.fLow), rectHeight)
             .move(band.fLow, y)
-            .stroke({ color: band.idcType == IdcType.Harmonics ? '#00f' : '#f00' })
+            .stroke({ color: band.idcType == types_1.IdcType.Harmonics ? '#00f' : '#f00' })
             .fill({ opacity: 0 });
         draw.plain(band.name).move(band.fLow, y);
         fLow.push(band.fLow);
@@ -195,10 +170,10 @@ function drawAxis(draw, y, orderCurr, fMax, fLow, fHigh) {
     draw.line(0, y, fMax + 100, y)
         .stroke({ color: '#000', width: 1 });
     for (let f of fLow) {
-        draw.plain(`${f}`).move(f, y);
+        draw.plain(`${f.toFixed(1)}`).move(f, y);
     }
     for (let f of fHigh) {
-        draw.plain(`${f}`).move(f, y + yOffsetText);
+        draw.plain(`${f.toFixed(1)}`).move(f, y + yOffsetText);
     }
 }
 if (require.main == module) {

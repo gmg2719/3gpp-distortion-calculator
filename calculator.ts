@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync } from 'fs';
 import { parse, resolve } from 'path';
+import { IdcType, Band, BandIdc } from './types';
 
 let ConfigParser = require('configparser');
 let Comb = require('js-combinatorics');
@@ -9,42 +10,6 @@ let rectHeight = 50;
 let yMargin = 50;
 let yStep = rectHeight + yMargin;
 let yOffsetText = 15;
-
-enum IdcType { Harmonics, IMD }
-
-class Band {
-    name: string;
-    fLow: number;
-    fHigh: number;
-
-    constructor(name, fLow, fHigh,) {
-        this.name = name;
-        this.fLow = fLow;
-        this.fHigh = fHigh;
-    }
-
-    centerFrequency(): number {
-        return (this.fHigh + this.fLow) / 2;
-    }
-
-    bandwidth(): number {
-        return this.fHigh - this.fLow;
-    }
-}
-
-class BandIdc extends Band {
-    idcType: IdcType;
-    idcOrder: number;
-    victims: Array<Band>;
-
-    constructor(name, fLow, fHigh, idcType: IdcType = null,
-                                   idcOrder: number = null) {
-        super(name, fLow, fHigh);
-        this.idcType = idcType;
-        this.idcOrder = idcOrder;
-        this.victims = [];
-    }
-}
 
 export function calculateHarmonics(bandsUl: Array<Band>, bandsDl: Array<Band>,
                                     order: number = 2): Array<BandIdc> {
@@ -218,10 +183,10 @@ function drawAxis(draw, y: number, orderCurr: number, fMax: number,
     draw.line(0, y, fMax + 100, y)
         .stroke({color: '#000', width: 1});
     for (let f of fLow) {
-        draw.plain(`${f}`).move(f, y);
+        draw.plain(`${f.toFixed(1)}`).move(f, y);
     }
     for (let f of fHigh) {
-        draw.plain(`${f}`).move(f, y + yOffsetText);
+        draw.plain(`${f.toFixed(1)}`).move(f, y + yOffsetText);
     }
 }
 
