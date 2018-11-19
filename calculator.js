@@ -16,18 +16,24 @@ var IdcType;
     IdcType[IdcType["IMD"] = 1] = "IMD";
 })(IdcType || (IdcType = {}));
 class Band {
-    constructor(name, fLow, fHigh, idcType = null, idcOrder = null) {
+    constructor(name, fLow, fHigh) {
         this.name = name;
         this.fLow = fLow;
         this.fHigh = fHigh;
-        this.idcType = idcType;
-        this.idcOrder = idcOrder;
     }
     centerFrequency() {
         return (this.fHigh + this.fLow) / 2;
     }
     bandwidth() {
         return this.fHigh - this.fLow;
+    }
+}
+class BandIdc extends Band {
+    constructor(name, fLow, fHigh, idcType = null, idcOrder = null) {
+        super(name, fLow, fHigh);
+        this.idcType = idcType;
+        this.idcOrder = idcOrder;
+        this.victims = [];
     }
 }
 function calculateHarmonics(bandsUl, bandsDl, order = 2) {
@@ -37,11 +43,13 @@ function calculateHarmonics(bandsUl, bandsDl, order = 2) {
         let bandwidth = order * bandUl.bandwidth();
         let fLow = centerFrequency - bandwidth / 2;
         let fHigh = fLow + bandwidth;
-        let bandHarmonics = new Band(`${bandUl.name}`, fLow, fHigh, IdcType.Harmonics, order);
+        let bandHarmonics = new BandIdc(`${bandUl.name}`, fLow, fHigh, IdcType.Harmonics, order);
         for (let bandDl of bandsDl) {
-            if (!doesOverlap(bandDl, bandHarmonics)) {
-                continue;
+            if (doesOverlap(bandDl, bandHarmonics)) {
+                bandHarmonics.victims.push(bandDl);
             }
+        }
+        if (bandHarmonics.victims.length) {
             bandsHarmonics.push(bandHarmonics);
         }
     }
@@ -80,12 +88,14 @@ function calculateIMD(bandsUl, bandsDl, numBands = 2, order = 2) {
             }
             let fLow = centerFrequency - bandwidth / 2;
             let fHigh = fLow + bandwidth;
-            let bandImd = new Band(bandCombName, fLow, fHigh, IdcType.IMD, order);
-            for (let band of bandsDl) {
-                if (doesOverlap(band, bandImd)) {
-                    bandsImd.push(bandImd);
-                    break;
+            let bandImd = new BandIdc(bandCombName, fLow, fHigh, IdcType.IMD, order);
+            for (let bandDl of bandsDl) {
+                if (doesOverlap(bandDl, bandImd)) {
+                    bandImd.victims.push(bandDl);
                 }
+            }
+            if (bandImd.victims.length) {
+                bandsImd.push(bandImd);
             }
         }
     }
@@ -147,12 +157,12 @@ function drawBands(bands, draw, height = rectHeight, offset = 0) {
         draw.plain(`${band.fHigh}`).move(band.fHigh, rectHeight + yOffsetText);
     }
 }
-function drawIdcBands(bands, draw, yStart, fMax) {
+function drawIdcBands(bandsIdc, draw, yStart, fMax) {
     let y;
     let orderCurr = null;
     let fLow = [];
     let fHigh = [];
-    for (let band of bands) {
+    for (let band of bandsIdc) {
         if (!orderCurr) {
             y = yStart;
             orderCurr = band.idcOrder;

@@ -16,16 +16,11 @@ class Band {
     name: string;
     fLow: number;
     fHigh: number;
-    idcType: IdcType;
-    idcOrder: number;
 
-    constructor(name, fLow, fHigh,
-                idcType: IdcType = null, idcOrder: number = null) {
+    constructor(name, fLow, fHigh,) {
         this.name = name;
         this.fLow = fLow;
         this.fHigh = fHigh;
-        this.idcType = idcType;
-        this.idcOrder = idcOrder;
     }
 
     centerFrequency(): number {
@@ -37,20 +32,36 @@ class Band {
     }
 }
 
+class BandIdc extends Band {
+    idcType: IdcType;
+    idcOrder: number;
+    victims: Array<Band>;
+
+    constructor(name, fLow, fHigh, idcType: IdcType = null,
+                                   idcOrder: number = null) {
+        super(name, fLow, fHigh);
+        this.idcType = idcType;
+        this.idcOrder = idcOrder;
+        this.victims = [];
+    }
+}
+
 export function calculateHarmonics(bandsUl: Array<Band>, bandsDl: Array<Band>,
-                                    order: number = 2): Array<Band> {
-    let bandsHarmonics: Array<Band> = [];
+                                    order: number = 2): Array<BandIdc> {
+    let bandsHarmonics: Array<BandIdc> = [];
     for (let bandUl of bandsUl) {
         let centerFrequency = order * bandUl.centerFrequency();
         let bandwidth = order * bandUl.bandwidth();
         let fLow = centerFrequency - bandwidth / 2;
         let fHigh = fLow + bandwidth;
-        let bandHarmonics = new Band(`${bandUl.name}`,
+        let bandHarmonics = new BandIdc(`${bandUl.name}`,
                                         fLow, fHigh, IdcType.Harmonics, order);
         for (let bandDl of bandsDl) {
-            if (!doesOverlap(bandDl, bandHarmonics)) {
-                continue;
+            if (doesOverlap(bandDl, bandHarmonics)) {
+                bandHarmonics.victims.push(bandDl);
             }
+        }
+        if (bandHarmonics.victims.length) {
             bandsHarmonics.push(bandHarmonics);
         }
     }
@@ -59,7 +70,7 @@ export function calculateHarmonics(bandsUl: Array<Band>, bandsDl: Array<Band>,
 
 export function calculateIMD(bandsUl: Array<Band>, bandsDl: Array<Band>,
                             numBands: number = 2,
-                            order: number = 2): Array<Band> {
+                            order: number = 2): Array<BandIdc> {
     let combsBands: Array<Array<Band>> = Comb.combination(bandsUl, numBands)
                                             .toArray();
     let combsCoeffs = combinatorialSum(order, numBands);
@@ -74,7 +85,7 @@ export function calculateIMD(bandsUl: Array<Band>, bandsDl: Array<Band>,
             combsCoeffsWithSigns.push(coeffsWithSigns);
         }
     }
-    let bandsImd: Array<Band> = [];
+    let bandsImd: Array<BandIdc> = [];
     for (let bands of combsBands) {
         for (let coeffsWithSings of combsCoeffsWithSigns) {
             let bandCombName = '';
@@ -91,13 +102,15 @@ export function calculateIMD(bandsUl: Array<Band>, bandsDl: Array<Band>,
             }
             let fLow = centerFrequency - bandwidth / 2;
             let fHigh = fLow + bandwidth;
-            let bandImd = new Band(bandCombName, fLow, fHigh,
+            let bandImd = new BandIdc(bandCombName, fLow, fHigh,
                                     IdcType.IMD, order);
-            for (let band of bandsDl) {
-                if (doesOverlap(band, bandImd)) {
-                    bandsImd.push(bandImd);
-                    break;
+            for (let bandDl of bandsDl) {
+                if (doesOverlap(bandDl, bandImd)) {
+                    bandImd.victims.push(bandDl);
                 }
+            }
+            if (bandImd.victims.length) {
+                bandsImd.push(bandImd);
             }
         }
     }
@@ -167,12 +180,12 @@ function drawBands(bands: Array<Band>, draw,
     }
 }
 
-function drawIdcBands(bands: Array<Band>, draw, yStart: number, fMax: number) {
+function drawIdcBands(bandsIdc: Array<BandIdc>, draw, yStart: number, fMax: number) {
     let y: number;
     let orderCurr: number = null;
     let fLow: Array<number> = [];
     let fHigh: Array<number> = [];
-    for (let band of bands) {
+    for (let band of bandsIdc) {
         if (!orderCurr) {
             y = yStart;
             orderCurr = band.idcOrder;
@@ -219,9 +232,9 @@ if (require.main == module) {
         config.read(process.argv[2]);
         let bandsUl = parseBands(config, 'UL');
         let bandsDl = parseBands(config, 'DL');
-        let bandsDistortion: Array<Band> = [];
-        let bandsHarmonics: Array<Band> = [];
-        let bandsImd: Array<Band> = [];
+        let bandsDistortion: Array<BandIdc> = [];
+        let bandsHarmonics: Array<BandIdc> = [];
+        let bandsImd: Array<BandIdc> = [];
         for (let order = 2; order <= 9; order++) {
             bandsHarmonics = bandsHarmonics.concat(calculateHarmonics(bandsUl,
                                                                         bandsDl,
