@@ -205,8 +205,10 @@ if (require.main == module) {
             bandsHarmonics = bandsHarmonics.concat(calculateHarmonics(bandsUl,
                                                                         bandsDl,
                                                                         order));
-            bandsImd = bandsImd.concat(calculateIMD(bandsUl, bandsDl,
-                                                    2, order));
+            for (let nBands = 2; nBands <= order; nBands++) {
+                bandsImd = bandsImd.concat(calculateIMD(bandsUl, bandsDl,
+                                                        nBands, order));
+            }
         }
         bandsDistortion = bandsHarmonics.concat(bandsImd).sort(function (a, b) {
             return a.idcOrder - b.idcOrder;
