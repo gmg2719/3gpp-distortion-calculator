@@ -33,3 +33,13 @@ export class BandIdc extends Band {
         this.victims = [];
     }
 }
+
+export class Rat {
+    dl: Array<Band>;
+    ul: Array<Band>;
+}
+
+export class Rats {
+    rat1: Rat;
+    rat2: Rat;
+}

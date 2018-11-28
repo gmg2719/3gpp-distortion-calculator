@@ -28,3 +28,9 @@ class BandIdc extends Band {
     }
 }
 exports.BandIdc = BandIdc;
+class Rat {
+}
+exports.Rat = Rat;
+class Rats {
+}
+exports.Rats = Rats;
