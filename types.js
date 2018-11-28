@@ -29,8 +29,16 @@ class BandIdc extends Band {
 }
 exports.BandIdc = BandIdc;
 class Rat {
+    constructor() {
+        this.dl = [];
+        this.ul = [];
+    }
 }
 exports.Rat = Rat;
 class Rats {
+    constructor() {
+        this.rat1 = new Rat();
+        this.rat2 = new Rat();
+    }
 }
 exports.Rats = Rats;

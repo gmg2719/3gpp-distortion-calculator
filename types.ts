@@ -37,9 +37,19 @@ export class BandIdc extends Band {
 export class Rat {
     dl: Array<Band>;
     ul: Array<Band>;
+
+    constructor() {
+        this.dl = [];
+        this.ul = [];
+    }
 }
 
 export class Rats {
     rat1: Rat;
     rat2: Rat;
+
+    constructor() {
+        this.rat1 = new Rat();
+        this.rat2 = new Rat();
+    }
 }
