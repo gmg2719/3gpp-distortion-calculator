@@ -1,6 +1,5 @@
-import { readFileSync, writeFileSync } from 'fs';
-import { parse, resolve } from 'path';
-import { IdcType, Band, BandIdc } from './types';
+import { parse } from 'path';
+import { IdcType, Band, BandIdc, Rats } from './types';
 
 let ConfigParser = require('configparser');
 let Comb = require('js-combinatorics');
@@ -27,13 +26,16 @@ export function calculateHarmonics(bandsUl: Array<Band>, bandsDl: Array<Band>,
     return bandsHarmonics;
 }
 
-export function calculateIMD(bandsUl: Array<Band>, bandsDl: Array<Band>,
-                            numBands: number = 2,
+export function calculateIMD(bandsUl1: Array<Band>, bandsUl2: Array<Band>, bandsDl: Array<Band>,
                             order: number = 2): Array<BandIdc> {
-    let combsBands: Array<Array<Band>> = Comb.combination(bandsUl, numBands)
-                                            .toArray();
-    let combsCoeffs = combinatorialSum(order, numBands);
-    let combsSigns = Comb.baseN([1, -1], numBands).toArray();
+    let combsBands: Array<Array<Band>> = [];
+    for (let bandUl1 of bandsUl1) {
+        for (let bandUl2 of bandsUl2) {
+            combsBands.push([bandUl1, bandUl2]);
+        }
+    }
+    let combsCoeffs = combinatorialSum(order, 2);
+    let combsSigns = Comb.baseN([1, -1], 2).toArray();
     let combsCoeffsWithSigns: Array<Array<number>> = [];
     for (let coeffs of combsCoeffs) {
         for (let signs of combsSigns) {
@@ -132,30 +134,43 @@ if (require.main == module) {
         let file = parse(process.argv[2]);
         let config = new ConfigParser();
         config.read(process.argv[2]);
-        let bandsUl = parseBands(config, 'UL');
-        let bandsDl = parseBands(config, 'DL');
+        let rats: Rats = new Rats();
+        rats.rat1.dl = parseBands(config, 'RAT1 DL');
+        rats.rat1.ul = parseBands(config, 'RAT1 UL');
+        rats.rat2.dl = parseBands(config, 'RAT2 DL');
+        rats.rat2.ul = parseBands(config, 'RAT2 UL');
         let bandsDistortion: Array<BandIdc> = [];
         let bandsHarmonics: Array<BandIdc> = [];
         let bandsImd: Array<BandIdc> = [];
-        let orderMax = 9;
+        let orderMax = 4;
         for (let order = 2; order <= orderMax; order++) {
-            bandsHarmonics = bandsHarmonics.concat(calculateHarmonics(bandsUl,
-                                                                        bandsDl,
-                                                                        order));
+            bandsHarmonics = bandsHarmonics.concat(
+                                calculateHarmonics(
+                                    rats.rat1.ul, rats.rat2.dl, order));
+            bandsHarmonics = bandsHarmonics.concat(
+                                calculateHarmonics(
+                                    rats.rat2.ul, rats.rat1.dl, order));
             for (let nBands = 2; nBands <= order; nBands++) {
-                bandsImd = bandsImd.concat(calculateIMD(bandsUl, bandsDl,
-                                                        nBands, order));
+                bandsImd = bandsImd.concat(
+                                calculateIMD(
+                                    rats.rat1.ul, rats.rat2.ul, rats.rat1.dl,
+                                        order));
+                bandsImd = bandsImd.concat(
+                                calculateIMD(
+                                    rats.rat1.ul, rats.rat2.ul, rats.rat2.dl,
+                                        order));
             }
         }
         bandsDistortion = bandsHarmonics.concat(bandsImd).sort(function (a, b) {
             return a.idcOrder - b.idcOrder;
         });
-        let fMax = Math.max(getFreqMax(bandsUl), getFreqMax(bandsDl),
+        let fMax = Math.max(getFreqMax(rats.rat1.dl), getFreqMax(rats.rat1.ul),
+                            getFreqMax(rats.rat2.dl), getFreqMax(rats.rat2.ul),
                             getFreqMax(bandsHarmonics), getFreqMax(bandsImd));
         orderMax = Math.max(getOrderMax(bandsHarmonics),
                                 getOrderMax(bandsImd));
-        let result = {'UL bands': bandsUl, 'DL bands': bandsDl,
-                     'IMD': bandsImd, 'Harmonics': bandsHarmonics};
+        let result = {rats: rats,
+                      idc: {IMD: bandsImd, Harmonics: bandsHarmonics}};
         console.log(JSON.stringify(result, null, 2));
         // TODO: draw
     } else {

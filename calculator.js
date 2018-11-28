@@ -1,16 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const fs_1 = require("fs");
 const path_1 = require("path");
 const types_1 = require("./types");
 let ConfigParser = require('configparser');
 let Comb = require('js-combinatorics');
-let window = require('svgdom');
-let SVG = require('svg.js')(window);
-let rectHeight = 50;
-let yMargin = 50;
-let yStep = rectHeight + yMargin;
-let yOffsetText = 15;
 function calculateHarmonics(bandsUl, bandsDl, order = 2) {
     let bandsHarmonics = [];
     for (let bandUl of bandsUl) {
@@ -31,11 +24,15 @@ function calculateHarmonics(bandsUl, bandsDl, order = 2) {
     return bandsHarmonics;
 }
 exports.calculateHarmonics = calculateHarmonics;
-function calculateIMD(bandsUl, bandsDl, numBands = 2, order = 2) {
-    let combsBands = Comb.combination(bandsUl, numBands)
-        .toArray();
-    let combsCoeffs = combinatorialSum(order, numBands);
-    let combsSigns = Comb.baseN([1, -1], numBands).toArray();
+function calculateIMD(bandsUl1, bandsUl2, bandsDl, order = 2) {
+    let combsBands = [];
+    for (let bandUl1 of bandsUl1) {
+        for (let bandUl2 of bandsUl2) {
+            combsBands.push([bandUl1, bandUl2]);
+        }
+    }
+    let combsCoeffs = combinatorialSum(order, 2);
+    let combsSigns = Comb.baseN([1, -1], 2).toArray();
     let combsCoeffsWithSigns = [];
     for (let coeffs of combsCoeffs) {
         for (let signs of combsSigns) {
@@ -122,95 +119,37 @@ function getOrderMax(bands) {
     }
     return orderMax;
 }
-function drawBands(bands, draw, height = rectHeight, offset = 0) {
-    for (let band of bands) {
-        draw.rect((band.fHigh - band.fLow), height)
-            .move(band.fLow, offset)
-            .stroke({ color: '#000' }).fill({ opacity: 0 });
-        draw.plain(band.name).move(band.fLow, offset);
-        draw.plain(`${band.fLow}`).move(band.fLow, rectHeight);
-        draw.plain(`${band.fHigh}`).move(band.fHigh, rectHeight + yOffsetText);
-    }
-}
-function drawIdcBands(bandsIdc, draw, yStart, fMax) {
-    let y;
-    let orderCurr = null;
-    let fLow = [];
-    let fHigh = [];
-    for (let band of bandsIdc) {
-        if (!orderCurr) {
-            y = yStart;
-            orderCurr = band.idcOrder;
-        }
-        else if (orderCurr == band.idcOrder) {
-            y += rectHeight;
-        }
-        else {
-            y += rectHeight;
-            drawAxis(draw, y, orderCurr, fMax, fLow, fHigh);
-            fLow = [];
-            fHigh = [];
-            y += yMargin;
-            orderCurr = band.idcOrder;
-        }
-        draw.rect((band.fHigh - band.fLow), rectHeight)
-            .move(band.fLow, y)
-            .stroke({ color: band.idcType == types_1.IdcType.Harmonics ? '#00f' : '#f00' })
-            .fill({ opacity: 0 });
-        draw.plain(band.name).move(band.fLow, y);
-        draw.plain(band.fLow.toFixed(1)).move(band.fLow, y + yOffsetText);
-        draw.plain(band.fHigh.toFixed(1)).move(band.fHigh, y + 2 * yOffsetText);
-    }
-    y += rectHeight;
-    drawAxis(draw, y, orderCurr, fMax, fLow, fHigh);
-    return y;
-}
-function drawAxis(draw, y, orderCurr, fMax, fLow, fHigh) {
-    draw.plain(`Order: ${orderCurr}`).move(0, y);
-    draw.line(0, y, fMax + 100, y)
-        .stroke({ color: '#000', width: 1 });
-    for (let f of fLow) {
-        draw.plain(`${f.toFixed(1)}`).move(f, y);
-    }
-    for (let f of fHigh) {
-        draw.plain(`${f.toFixed(1)}`).move(f, y + yOffsetText);
-    }
-}
 if (require.main == module) {
     if (process.argv.length >= 3) {
         let file = path_1.parse(process.argv[2]);
         let config = new ConfigParser();
         config.read(process.argv[2]);
-        let bandsUl = parseBands(config, 'UL');
-        let bandsDl = parseBands(config, 'DL');
+        let rats = new types_1.Rats();
+        rats.rat1.dl = parseBands(config, 'RAT1 DL');
+        rats.rat1.ul = parseBands(config, 'RAT1 UL');
+        rats.rat2.dl = parseBands(config, 'RAT2 DL');
+        rats.rat2.ul = parseBands(config, 'RAT2 UL');
         let bandsDistortion = [];
         let bandsHarmonics = [];
         let bandsImd = [];
-        let orderMax = 9;
+        let orderMax = 4;
         for (let order = 2; order <= orderMax; order++) {
-            bandsHarmonics = bandsHarmonics.concat(calculateHarmonics(bandsUl, bandsDl, order));
+            bandsHarmonics = bandsHarmonics.concat(calculateHarmonics(rats.rat1.ul, rats.rat2.dl, order));
+            bandsHarmonics = bandsHarmonics.concat(calculateHarmonics(rats.rat2.ul, rats.rat1.dl, order));
             for (let nBands = 2; nBands <= order; nBands++) {
-                bandsImd = bandsImd.concat(calculateIMD(bandsUl, bandsDl, nBands, order));
+                bandsImd = bandsImd.concat(calculateIMD(rats.rat1.ul, rats.rat2.ul, rats.rat1.dl, order));
+                bandsImd = bandsImd.concat(calculateIMD(rats.rat1.ul, rats.rat2.ul, rats.rat2.dl, order));
             }
         }
         bandsDistortion = bandsHarmonics.concat(bandsImd).sort(function (a, b) {
             return a.idcOrder - b.idcOrder;
         });
-        let fMax = Math.max(getFreqMax(bandsUl), getFreqMax(bandsDl), getFreqMax(bandsHarmonics), getFreqMax(bandsImd));
+        let fMax = Math.max(getFreqMax(rats.rat1.dl), getFreqMax(rats.rat1.ul), getFreqMax(rats.rat2.dl), getFreqMax(rats.rat2.ul), getFreqMax(bandsHarmonics), getFreqMax(bandsImd));
         orderMax = Math.max(getOrderMax(bandsHarmonics), getOrderMax(bandsImd));
-        let result = { 'UL bands': bandsUl, 'DL bands': bandsDl,
-            'IMD': bandsImd, 'Harmonics': bandsHarmonics };
+        let result = { rats: rats,
+            idc: { IMD: bandsImd, Harmonics: bandsHarmonics } };
         console.log(JSON.stringify(result, null, 2));
-        let document = window.document;
-        let draw = SVG(document.documentElement).size(fMax + 100, (result.IMD.length + result.Harmonics.length) * rectHeight +
-            (orderMax * (yMargin + rectHeight)));
-        // Given bands
-        drawBands(bandsUl, draw, rectHeight / 2);
-        drawBands(bandsDl, draw, rectHeight / 2, rectHeight / 2);
-        draw.line(0, rectHeight, fMax + 100, rectHeight)
-            .stroke({ color: '#000', width: 1 });
-        let y = drawIdcBands(bandsDistortion, draw, rectHeight + yOffsetText + yMargin, fMax);
-        fs_1.writeFileSync(`${file.name}.svg`, draw.svg());
+        // TODO: draw
     }
     else {
     }
