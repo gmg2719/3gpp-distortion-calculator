@@ -2,6 +2,10 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const path_1 = require("path");
 const types_1 = require("./types");
+exports.IdcType = types_1.IdcType;
+exports.Band = types_1.Band;
+exports.BandIdc = types_1.BandIdc;
+exports.Rats = types_1.Rats;
 let ConfigParser = require('configparser');
 let Comb = require('js-combinatorics');
 function calculateHarmonics(bandsUl, bandsDl, order = 2) {

@@ -1,5 +1,6 @@
 import { parse } from 'path';
 import { IdcType, Band, BandIdc, Rats } from './types';
+export { IdcType, Band, BandIdc, Rats };
 
 let ConfigParser = require('configparser');
 let Comb = require('js-combinatorics');
